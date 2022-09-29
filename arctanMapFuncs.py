@@ -1,14 +1,21 @@
+""" This script contains the function used to floor and ceiling the internal 'pseudo' stride length variable for the EKF, as well as taking its derivative
+"""
+
 import numpy as np
 
-
+#declare the maximum actual stride length to saturate to
 MAXIMUM_STRIDELENGTH = 4
+
+#apply the arctangent function to the pseudo stride length
 def arctanMap(x):
 
 	return (MAXIMUM_STRIDELENGTH/np.pi)*(np.arctan( (np.pi/(MAXIMUM_STRIDELENGTH)) * (x ) )) + MAXIMUM_STRIDELENGTH/2
 
+#apply the inverse arctangent function to the stride length
 def invArctanMap(y):
 
 	return ((MAXIMUM_STRIDELENGTH)/np.pi)*(np.tan( (np.pi/MAXIMUM_STRIDELENGTH)* (y-MAXIMUM_STRIDELENGTH/2)))
+
 
 def test_inversion():
 	xs = np.linspace(-2,2,100)
@@ -20,9 +27,8 @@ def test_inversion():
 
 
 
-
+#take the derivative of the arctangent map with pseudo stride length as inpu
 def dArctanMap(x):
-
 	return 1/(1 + ((np.pi/(MAXIMUM_STRIDELENGTH)) * x)**2)
 
 def test_derivative():

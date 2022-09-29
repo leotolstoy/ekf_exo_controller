@@ -1,3 +1,6 @@
+'''This file contains the functionality for loading the gait models in the EKF with different basis functions
+'''
+
 import numpy as np
 from time import time
 from evalBezierFuncs_3P import *
@@ -6,7 +9,7 @@ from arctanMapFuncs import *
 
 
 
-
+#this file contains
 
 class GaitModel_Bezier():
 
@@ -18,7 +21,6 @@ class GaitModel_Bezier():
 		self.incline_order = incline_order
 
 		self.numFuncs = (incline_order+1) * (stride_length_order+1) * (phase_order+1)
-
 
 	def loadCoefficients(self,filename):
 	    data = np.loadtxt(filename,delimiter=',')

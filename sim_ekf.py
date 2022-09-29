@@ -70,15 +70,6 @@ def get_std(cov):
 
 def main():
     filename = 'AB01/20220323-22_AE0629Standalone_PB_EKF_Test_AB01_Forward_02.csv' #gets lost, pauses for a long time, use to tune HSDetector
-    # filename = 'AB01/20220323-22_AE2215Standalone_PB_EKF_Test_AB01_Backward_03.csv' #pauses, use to tune HSDetector
-    # filename = 'AB03/20220328-21_AE1509Standalone_PB_EKF_Test_AB03_Forward_02.csv'
-    # filename = 'AB03/20220328-21_AE3436Standalone_PB_EKF_Test_AB03_Forward03.csv'
-    # filename = "AB03/20220328-21_AE5105Standalone_PB_EKF_Test_AB03_Reverse_04.csv" #use this to tune gains, most unstable one
-    # filename = "AB04/20220328-22_AE3220Standalone_PB_EKF_Test_AB04_Reverse_Tuning.csv"#long pauses
-    # filename = 'AB04/20220328-23_AE0413Standalone_PB_EKF_Test_AB04ReverseTuning_02.csv'
-    # filename = 'AB04/20220328-22_AE5753Standalone_PB_EKF_Test_AB04ForwardTuning_02.csv'
-    # filename = 'AB05/20220404-20_AE0058Standalone_PB_EKF_Test_AB05_TPVB_04.csv'
-    filename = 'wavefield_2.csv'
 
 
     data = np.loadtxt(filename, delimiter=',') 
@@ -105,24 +96,6 @@ def main():
 
     gait_model_covar_path = f'GaitModel/covar_fourier_normalizedsL_linearsL.csv'
 
-    # attitude_ekf=AttitudeEKF(**attitude_ekf_args)
-
-    # torque_profile = TorqueProfile('TorqueProfile/torqueProfileCoeffs_dataport3P.csv')
-    # gait_model = GaitModel_Fourier('GaitModel/gaitModel_fourier_normalizedsL_linearsL.csv',phase_order=20, stride_length_order=1, incline_order=1)
-
-
-
-    #HETEROSCEDASTIC VELOCITY ON
-    #stable
-    # sigma_foot = 1
-    # sigma_shank = 7
-
-    # sigma_foot_vel = 10
-    # sigma_shank_vel = 20
-
-    # sigma_heel_pos_forward = 0.01 #m
-    # sigma_heel_pos_up = 0.08 #m
-
     sigma_foot = 1
     sigma_shank = 7
 
@@ -144,20 +117,10 @@ def main():
         ])
 
     #STABLE
-    # sigma_q_phase=0
-    # sigma_q_phase_dot=6e-4
-    # sigma_q_sL=9e-4
-    # sigma_q_incline=6e-3
-
     sigma_q_phase=0
     sigma_q_phase_dot=1e-3
     sigma_q_sL=2e-3
     sigma_q_incline=5e-2
-
-
-
-
-    # phase_ekf = PhaseEKF(**phase_ekf_args)
 
     if (USE_C):
 
@@ -213,11 +176,6 @@ def main():
 
 
     #INITIALIZE BACKUP EKF
-    #velocity het off
-    # Q_HP = np.diag([5e-5,1e-3])
-    # R_HP = phase_ekf.R_mean
-
-    #Velocity het on
     Q_HP = np.diag([1e-4,5e-3])
     R_HP = phase_ekf.R_mean
     
@@ -275,7 +233,7 @@ def main():
     elif 'AB03' in filename:
         SUBJECT_LEG_LENGTH = 0.965
     elif 'AB05' in filename:
-        SUBJECT_LEG_LENGTH = 1.7272/2 #verify this
+        SUBJECT_LEG_LENGTH = 1.7272/2
     # SUBJECT_LEG_LENGTH = 1.854/2
     
 
@@ -317,12 +275,9 @@ def main():
     x_state_PE_vec_hardware = data[:,25:29]
     z_measured_vec_hardware = data[:,29:35]
     z_model_vec_hardware = data[:,35:41]
-
     phase_vec_hardware = x_state_PE_vec_hardware[:,0]
     phase_rate_vec_hardware = x_state_PE_vec_hardware[:,1]
     incline_vec_hardware = x_state_PE_vec_hardware[:,3]
-
-
 
     HSDetected_vec_hardware = data[:,24]
     strideLength_vec_hardware = data[:,45]
@@ -340,8 +295,8 @@ def main():
     heelAccForward_meas_fromDeltaVelocity_norm_vec_hardware = np.sqrt(heelAccForward_meas_fromDeltaVelocity_vec_hardware**2 +
                                                             heelAccSide_meas_fromDeltaVelocity_vec_hardware**2 +
                                                             (heelAccUp_meas_fromDeltaVelocity_vec_hardware)**2)
-
-
+    
+    #play back the data and simulate on it
     for i,x in enumerate(data[:]):
 
         timeSec=x[0]
@@ -354,14 +309,7 @@ def main():
         shankAngle_meas = x[22]
         footAngle_meas = x[23]
 
-        # R = np.array([[r00[i],r01[i],r02[i]],[r10[i],r11[i],r12[i]],[r20[i],r21[i],r22[i]]])
-
-        # R_foot = R_sensor_to_foot @ R @ R_y_correct
-        # print('R_foot')
-        # print(R_foot)
-
-        # print('R_foot normal')
-        # roll, pitch, yaw = extractEulerAngles_new(R_foot)
+        
         roll_ahrs_hardware = x[58]
         pitch_ahrs_hardware = x[59]
         yaw_ahrs_hardware = x[60]
@@ -390,8 +338,6 @@ def main():
         heelAccForward_meas_norm = np.sqrt(heelAccForward_meas_fromDeltaVelocity**2 +
                                                             heelAccSide_meas_fromDeltaVelocity**2 +
                                                             (heelAccUp_meas_fromDeltaVelocity)**2)
-
-
 
         if DO_NEW_HS_DETECTOR:
 
@@ -435,12 +381,11 @@ def main():
         heelPosForward_meas_filt = heelPosForward_meas_filt_hardware
         heelPosUp_meas_filt = heelPosUp_meas_filt_hardware
 
+        #filter/integrate the heel accelerometer signals
         if DO_FILT_ON_POS_FORWARD:
             dt_int = np.min([dt, MAX_TIME_STEP_INTEGRATE])
             states_heelPosForward, heelPosForward_meas_filt = heelPosForwardFilter.step(i, dt_int, heelAccForward_meas_fromDeltaVelocity)
             heelPosForward_meas_filt = heelPosForward_meas_filt[0,0]
-
-            # heelPosForward_meas_filt = np.max([np.min([heelPosForward_meas_filt, 0.4]), -0.25])
 
         if DO_FILT_ON_POS_UP:
             states_heelPosUp, heelPosUp_meas_filt = heelPosUpFilter.step(i, dt_int, heelAccUp_meas_fromDeltaVelocity)
@@ -450,12 +395,9 @@ def main():
 
         #Fake ideal accel signals
         if SPOOF_SENSORS:
-            # phase_estimate = phase_ekf.x_state_estimate[0,0]
-            # phase_dot_estimate = phase_ekf.x_state_estimate[1,0]
             phase_estimate = x_state[0]
             phase_dot_estimate = x_state[1]
             pseudoStrideLength_estimate = phase_ekf.x_state_estimate[2,0]
-            # strideLength_estimate = arctanMap(pseudoStrideLength_estimate)
             strideLength_estimate = 1.3/SUBJECT_LEG_LENGTH
             incline_estimate = phase_ekf.x_state_estimate[3,0]
 
@@ -538,12 +480,6 @@ def main():
             phase_ekf.z_model[5].item(0) + 2*np.sqrt(phase_ekf.R[5,5]), #24
             arctanFromPos])
 
-        # plot_states.append([
-        #     states_heelPosForward[0,0],
-        #     states_heelPosForward[1,0],
-        #     states_heelPosUp[0,0],
-        #     states_heelPosUp[1,0],
-        #     ])
 
         plot_data_HPEKF.append([
             timeSec, 
@@ -589,16 +525,9 @@ def main():
 
     state_std_devs = np.array(state_std_devs)
 
-    # state_std_devs = get_std(P_covars)
-
-    # print(plot_data_timing_heelphase)
-
-    # print sampling rate
-
     print('Sampling Rate')
     sample_rate = 1/np.mean(np.diff(data[:,0]))
     print(sample_rate)
-
 
     
     if SHOW_FULL_STATE:
@@ -617,54 +546,33 @@ def main():
         # axs[0].plot(timeSec_vec_hardware, HSDetected_vec_hardware, label=r"$HSDetected, hardware$")
         axs[0].plot(plot_data[:,0], plot_data[:,7], label=r"$HSDetected Sim$")
         axs[0].plot(plot_data[:,0], plot_data_HPEKF[:,1],'k', label=r"$isOverriding sim$")
-        # axs[0].plot(plot_data[:,0], plot_data[:,19], label=r"$isOverriding old$")
         axs[0].legend()
         
 
         axs[1].plot(timeSec_vec_hardware, phase_rate_vec_hardware, label=r"$phasedot_{hardware}$")
         axs[1].plot(plot_data[:,0], plot_data[:,2],'b', label=r"$phasedot_{sim}$")
-        # axs[0].fill_between(plot_data[:,0], state_std_devs[:,2],  state_std_devs[:,3], color='blue', alpha=0.3)
         axs[1].plot(plot_data[:,0], state_std_devs[:,2],'b--')
         axs[1].plot(plot_data[:,0], state_std_devs[:,3],'b--')
-        # axs[1].fill_between(plot_data[:,0], plot_data[:,6] - 1.96 * state_std_devs[:, 1],  plot_data[:,6] + 1.96*state_std_devs[:, 1], color='blue', alpha=0.3)
         axs[1].plot(plot_data_HPEKF[:,0], plot_data_HPEKF[:,3], label=r"$phase rate_{hpekf}$")
         axs[1].legend()
         axs[1].set_ylim([0,1.3])
 
         axs[2].plot(timeSec_vec_hardware, strideLength_vec_hardware, label=r"$Stride Length_{hardware}$")
         axs[2].plot(plot_data[:,0], plot_data[:,3],'b', label=r"$Stride Length_{sim}$")
-        # axs[0].fill_between(plot_data[:,0], state_std_devs[:,4],  state_std_devs[:,5], color='blue', alpha=0.3)
-        # axs[2].plot(plot_data[:,0], state_std_devs[:,4],'b--')
-        # axs[2].plot(plot_data[:,0], state_std_devs[:,5],'b--')
-        # axs[2].fill_between(plot_data[:,0], plot_data[:,7] - 1.96 * state_std_devs[:, 2],  plot_data[:,7] + 1.96*state_std_devs[:, 2], color='blue', alpha=0.3)
         axs[2].plot(plot_data_HPEKF[:,0], plot_data_HPEKF[:,4], label=r"$stride length_{hpekf}$")
-
-        # axs[2].plot(plot_data[:,0], HSDetected_vec_hardware, label=r"$HSDetected, hardware$"))
-        # axs[2].plot(plot_data[:,0], plot_data[:,7],'k', label=r"$isOverriding sim$")
-        # axs[2].plot(plot_data[:,0], plot_data[:,19], label=r"$isOverriding old$")
         axs[2].legend()
 
         axs[3].plot(timeSec_vec_hardware, incline_vec_hardware, label=r"$Ramp_{hardware}$")
         axs[3].plot(plot_data[:,0], plot_data[:,4],'b', label=r"$Ramp_{sim}$")
-        # axs[0].fill_between(plot_data[:,0], state_std_devs[:,6],  state_std_devs[:,7], color='blue', alpha=0.3)
         axs[3].plot(plot_data[:,0], state_std_devs[:,6],'b--')
         axs[3].plot(plot_data[:,0], state_std_devs[:,7],'b--')
-        # axs[3].fill_between(plot_data[:,0], plot_data[:,8] - 1.96 * state_std_devs[:, 3],  plot_data[:,8] + 1.96*state_std_devs[:, 3], color='blue', alpha=0.3)
 
         axs[3].plot(plot_data_HPEKF[:,0], plot_data_HPEKF[:,5], label=r"$ramp_{hpekf}$")
-
-        # axs[3].plot(plot_data[:,0], HSDetected_vec_hardware*10, label=r"$HSDetected$")
-        # axs[3].plot(plot_data[:,0], plot_data[:,7]*10,'k', label=r"$isOverriding sim$")
-        # axs[3].plot(plot_data[:,0], plot_data[:,19], label=r"$isOverriding old$")
         axs[3].legend()
         axs[3].set_ylim([-14,14])
 
         axs[4].plot(plot_data_HPEKF[:,0], plot_data_HPEKF[:,6], label=r"$SSE_{hpekf}$")
         axs[4].plot(plot_data[:,0], plot_data[:,5], label=r"$SSE_{sim}$")
-        # axs[4].plot(plot_data[:,0], HSDetected_vec_hardware*1e3, label=r"$HSDetected$")
-        # axs[4].plot(plot_data[:,0], plot_data[:,7]*1e3,'k', label=r"$isOverriding sim$")
-        # axs[4].plot(plot_data[:,0], plot_data[:,19], label=r"$isOverriding old$")
-
         axs[4].legend()
 
         axs[-1].set_xlabel("time (sec)")
@@ -683,13 +591,11 @@ def main():
         axs[1].plot(timeSec_vec_hardware, plot_data_imu[:,7], label=r"$pitch AHRS$")
         axs[1].plot(timeSec_vec_hardware, HSDetected_vec_hardware*10, label=r"$HSDetected Hardware$")
         axs[1].plot(plot_data[:,0], plot_data[:,7]*10,'r', label=r"$HSDetected Sim$")
-        # axs[1].plot(plot_data[:,0], plot_data[:,21], label=r"$HSD State$")
         axs[1].legend()
 
         axs[2].plot(timeSec_vec_hardware, plot_data_imu[:,8], label=r"$yaw AHRS$")
         axs[2].plot(timeSec_vec_hardware, HSDetected_vec_hardware*10 , label=r"$HSDetected Hardware$")
         axs[2].plot(plot_data[:,0], plot_data[:,7]*10,'r', label=r"$HSDetected Sim$")
-        # axs[2].plot(plot_data[:,0], plot_data[:,21], label=r"$HSD State$")
         axs[2].legend()
         axs[-1].set_xlabel("time (sec)")
         print("this is done")
@@ -698,19 +604,12 @@ def main():
         fig, axs = plt.subplots(3,2,sharex=True,figsize=(10,6))
 
         axs[0,0].plot(timeSec_vec_hardware, accelVec_corrected_vec_hardware[:,0], label=r"$accelX IMU$")
-        # axs[0,0].plot(timeSec_vec_hardware, HSDetected_vec_hardware*1, label=r"$HSDetected Hardware$")
-        # axs[0,0].plot(plot_data[:,0], plot_data[:,7]*1, label=r"$HSDetected Sim$")
-
         axs[0,0].legend()
 
         axs[1,0].plot(plot_data[:,0], accelVec_corrected_vec_hardware[:,1], label=r"$accelY IMU$")
-        # axs[1,0].plot(plot_data[:,0], HSDetected_vec_hardware*1, label=r"$HSDetected Hardware$")
-        # axs[1,0].plot(plot_data[:,0], plot_data[:,7]*1, label=r"$HSDetected Sim$")
         axs[1,0].legend()
 
         axs[2,0].plot(plot_data[:,0], accelVec_corrected_vec_hardware[:,2], label=r"$accelZ IMU$")
-        # axs[2,0].plot(plot_data[:,0], HSDetected_vec_hardware*1, label=r"$HSDetected Hardware$")
-        # axs[2,0].plot(plot_data[:,0], plot_data[:,7]*1, label=r"$HSDetected Sim$")
         axs[2,0].legend()
 
         axs[2,0].legend()
@@ -718,8 +617,6 @@ def main():
 
         axs[-1,0].set_xlabel("time (sec)")
         print("this is done")
-
-        # plt.show()
 
 
         axs[0,1].plot(timeSec_vec_hardware, gyroVec_corrected_vec_hardware[:,0], label=r"$gyroX IMU$")
@@ -737,7 +634,6 @@ def main():
         axs[2,1].plot(timeSec_vec_hardware, HSDetected_vec_hardware*1, label=r"$HSDetected Hardware$")
         axs[2,1].plot(plot_data[:,0], plot_data[:,7]*1, label=r"$HSDetected Sim$")
 
-        # axs[2].plot(plot_data[:,0], plot_data[:,21], label=r"$HSD State$")
         axs[2,1].legend()
         axs[-1,1].set_xlabel("time (sec)")
         print("this is done")
@@ -768,39 +664,30 @@ def main():
 
         fig, axs = plt.subplots(5,1,sharex=True,figsize=(10,6))
 
-        # axs[0].plot(plot_data[:,0], plot_data[:,1], label=r"$phase_{hardware}$")
         axs[0].plot(timeSec_vec_hardware, z_measured_vec_hardware[:,0], label=r"$foot angle, measured_{act}$")
         axs[0].plot(plot_data_measured[:,0], plot_data_measured[:,1], label=r"$foot angle, model_{sim}$")
         axs[0].plot(plot_data_measured[:,0], plot_data_measured[:,7], label=r"$foot angle, meas_{sim}$")
         axs[0].fill_between(plot_data_measured[:,0], plot_data_measured[:,13],plot_data_measured[:,14], alpha=.5)
         axs[0].plot(plot_data[:,0], plot_data[:,7]*1e1, 'r', label=r"$HSDetected Sim$")
-        # axs[0].plot(plot_data[:,0], HSDetected_vec_hardware*1e1, label=r"$HSDetected hardware$")
         axs[0].plot(plot_data[:,0], plot_data_HPEKF[:,1]*1e1,'k', label=r"$isOverriding sim$")
-        # axs[0].fill_between(plot_data_measured[:,0], plot_data_measured[:,16],plot_data_measured[:,17], alpha=.5)
         
         axs[0].legend()
         axs[0].set_ylim([-70,50])
 
-        # axs[0].plot(plot_data[:,0], plot_data[:,1], label=r"$phase_{hardware}$")
         axs[1].plot(timeSec_vec_hardware, z_measured_vec_hardware[:,1], label=r"$foot angle vel, measured_{act}$")
         axs[1].plot(plot_data_measured[:,0], plot_data_measured[:,2], label=r"$foot angle vel, model_{sim}$")
         axs[1].plot(plot_data_measured[:,0], plot_data_measured[:,8], label=r"$foot angle vel, meas_{sim}$")
         axs[1].fill_between(plot_data_measured[:,0], plot_data_measured[:,15],plot_data_measured[:,16], alpha=.5)
         axs[1].plot(plot_data[:,0], plot_data[:,7]*1e1, 'r', label=r"$HSDetected Sim$")
-        # (?# axs[1].plot(plot_data[:,0], HSDetected_vec_hardware*1e1, label=r"$HSDetected Hardware$"))
         axs[1].plot(plot_data[:,0], plot_data_HPEKF[:,1]*1e1,'k', label=r"$isOverriding sim$")
         axs[1].legend()
-        # axs[1].set_ylim([-500,500])
 
-        # axs[1].plot(plot_data[:,0], plot_data[:,2], label=r"$phasedot_{hardware}$")
         axs[2].plot(timeSec_vec_hardware, z_measured_vec_hardware[:,2], label=r"$shank angle, measured_{act}$")
         axs[2].plot(plot_data_measured[:,0], plot_data_measured[:,3], label=r"$shank angle, model_{sim}$")
         axs[2].plot(plot_data_measured[:,0], plot_data_measured[:,9], label=r"$shank angle, meas_{sim}$")
         axs[2].fill_between(plot_data_measured[:,0], plot_data_measured[:,17],plot_data_measured[:,18], alpha=.5)
         axs[2].plot(plot_data[:,0], plot_data[:,7]*1e1, 'r', label=r"$HSDetected Sim$")
-        # axs[2].plot(plot_data[:,0], HSDetected_vec_hardware*1e1, label=r"$HSDetected Hardware$")
         axs[2].plot(plot_data[:,0], plot_data_HPEKF[:,1]*1e1,'k', label=r"$isOverriding sim$")
-        # axs[2].fill_between(plot_data_measured[:,0], plot_data_measured[:,18],plot_data_measured[:,19], alpha=.5)
         axs[2].legend()
         axs[2].set_ylim([-70,50])
 
@@ -809,20 +696,16 @@ def main():
         axs[3].plot(plot_data_measured[:,0], plot_data_measured[:,10], label=r"$shank angle vel, meas_{sim}$")
         axs[3].fill_between(plot_data_measured[:,0], plot_data_measured[:,19],plot_data_measured[:,20], alpha=.5)
         axs[3].plot(plot_data[:,0], plot_data[:,7]*1e1, 'r', label=r"$HSDetected Sim$")
-        # axs[3].plot(plot_data[:,0], HSDetected_vec_hardware*1e1, label=r"$HSDetected Hardware$")
         axs[3].plot(plot_data[:,0], plot_data_HPEKF[:,1]*1e1,'k', label=r"$isOverriding sim$")
         axs[3].legend()
-        # axs[3].set_ylim([-500,500])
 
         axs[4].plot(timeSec_vec_hardware, z_measured_vec_hardware[:,4], label=r"$foot position, measured_{act}$")
         axs[4].plot(plot_data_measured[:,0], plot_data_measured[:,5], label=r"$foot position, model_{sim}$")
         axs[4].plot(plot_data_measured[:,0], plot_data_measured[:,11], label=r"$foot position, meas_{sim}$")
         axs[4].fill_between(plot_data_measured[:,0], plot_data_measured[:,21],plot_data_measured[:,22], alpha=.5)
         axs[4].plot(plot_data[:,0], plot_data[:,7]*1e-1, 'r', label=r"$HSDetected Sim$")
-        # axs[4].plot(plot_data[:,0], HSDetected_vec_hardware*1e-1, label=r"$HSDetected Hardware$")
         axs[4].plot(plot_data[:,0], plot_data_HPEKF[:,1]*1e-1,'k', label=r"$isOverriding sim$")
         axs[4].legend()
-        # axs[4].set_ylim([-0.5,0.5])
 
         print("this is done (plot measured)")
 
@@ -833,7 +716,6 @@ def main():
         axs[0].fill_between(plot_data_measured[:,0], plot_data_measured[:,21],plot_data_measured[:,22], alpha=.5)
         if DO_FILT_ON_POS_FORWARD or SPOOF_SENSORS:
             axs[0].plot(plot_data_measured[:,0], plot_data_measured[:,11], '-o', label=r"$foot position forward, meas_{sim}$")
-        # axs[0].plot(plot_data[:,0], HSDetected_vec_hardware*1e-1, label=r"$HSDetected Hardware$")
         axs[0].plot(plot_data[:,0], plot_data[:,7]*1e-1, 'r', label=r"$HSDetected Sim$")
         axs[0].plot(plot_data[:,0], plot_data_HPEKF[:,1]*1e-1,'k', label=r"$isOverriding sim$")
 
@@ -844,7 +726,6 @@ def main():
         axs[1].fill_between(plot_data_measured[:,0], plot_data_measured[:,23],plot_data_measured[:,24], alpha=.5)
         if DO_FILT_ON_POS_UP or SPOOF_SENSORS:
             axs[1].plot(plot_data_measured[:,0], plot_data_measured[:,12], '-o', label=r"$foot position up, meas_{sim}$")
-        # axs[1].plot(plot_data[:,0], HSDetected_vec_hardware*1e-1, label=r"$HSDetected hardware$")
         axs[1].plot(plot_data[:,0], plot_data[:,7]*1e-1, 'r', label=r"$HSDetected Sim$")
         axs[1].plot(plot_data[:,0], plot_data_HPEKF[:,1]*1e-1,'k', label=r"$isOverriding sim$")
         axs[1].legend()
@@ -881,7 +762,6 @@ def main():
     if PLOT_TIMING_INFORMATION: # timing information
 
         # attitude
-
         fig, axs = plt.subplots(3,1,sharex=True,figsize=(10,6))
 
         axs[0].plot(plot_data_timing_attitude_ekf[:,0], plot_data_timing_attitude_ekf[:,1], label="timing_step")
@@ -913,9 +793,7 @@ def main():
         axs[-1].set_xlabel("time (sec)")
 
         axs[2].legend()
-        # axs[0].set_title("heelphase")
 
-        # plt.show()
 
     #PLOT FOOT IMU ACCEL
     if True:
@@ -944,9 +822,6 @@ def main():
     if True:
         fig, axs = plt.subplots(sharex=True,figsize=(10,6))
         axs.plot(timeSec_vec_hardware[1:], dt_vec_hardware, label=r"$dt$")
-
-
-
 
     plt.show()
     

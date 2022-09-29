@@ -12,21 +12,12 @@ from ActPackMan import ActPackMan, FlexSEA
 import gc
 gc.disable()
 
-
 from evalBezierFuncs_3P import *
 from arctanMapFuncs import *
-# from attitudeEstimatorEKFFuncs import * 
 
-# from attitude_ekf import AttitudeEKF
-
-# from phase_ekf import PhaseEKF
-# from heelphase import HeelPhaseEstimator
 from heelphase_ekf import HeelPhaseEKF
 import callibrate_angles_nls as ca
-# from gait_model import GaitModel_Bezier, GaitModel_Fourier
-# from ekf_torque_profile import TorqueProfile
-# from measurement_noise_model import MeasurementNoiseModel
-# from pyEKFboost import GaitModel, TorqueProfile
+
 USE_C = True
 from C_Wrapper import *
 
@@ -46,9 +37,6 @@ sys.path.append(thisdir)
 sys.path.append(thisdir + '/BestFitParams')
 FADE_IN_TIME = 1.0
 
-# from flexsea import flexsea as flex
-# from flexsea import fxUtils as fxu  # pylint: disable=no-name-in-module
-# from flexsea import fxEnums as fxe  # pylint: disable=no-name-in-module
 
 def clear():
     if os.name == 'nt':
@@ -91,17 +79,14 @@ eye6 = np.eye(6)
 eye4= np.eye(4)
 
 
-# correct exo IMU
-
+# These matrices define the transform that converts the exo-mounted IMU to the standard frame (z-up, x-forward)
 #also only good for the right leg
 theta_correction = 39.1090 * np.pi/180
-
 
 #correct to non tilted axes
 Rot_unskew = np.array(  [[np.cos(theta_correction), -np.sin(theta_correction),0],[np.sin(theta_correction), np.cos(theta_correction),0],[0, 0, 1]])
 
 # correct to z up, x forward, y left
-
 Rot1 = np.array( [[1, 0, 0],[0,np.cos(-np.pi/2), -np.sin(-np.pi/2)],[0,np.sin(-np.pi/2), np.cos(-np.pi/2)]] )
 Rot2 = np.array( [[np.cos(-np.pi/2), 0 ,np.sin(-np.pi/2)],[0,1, 0],[-np.sin(-np.pi/2),0, np.cos(-np.pi/2)]]  )
 
@@ -114,8 +99,6 @@ Rot5 = np.array( [[np.cos(np.pi), 0 ,np.sin(np.pi)],[0,1, 0],[-np.sin(np.pi),0, 
 Rot_correct = Rot5 @ Rot4 @ Rot3 @ Rot_correct
 
 
-
-
 # correct foot IMU
 
 Rot_correct_imu =  np.array( [[0, 0, 1],[0,-1,0],[1,0,0]] )
@@ -123,7 +106,6 @@ Rot_correct_imu =  np.array( [[0, 0, 1],[0,-1,0],[1,0,0]] )
 #Phase estimator
 Kt = 0.14 * 0.537/np.sqrt(2)
 N_avg = 15
-
 
 
 side = 'right'
@@ -134,15 +116,13 @@ if (side == "left" or side == "l"):
 elif (side == "right" or side == "r"):
     sideMultiplier = 1
 
-
+#this function runs the EKF
 def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
 
     attitude_ekf_args = {'sigma_gyro':0.0023,
                             'sigma_accel': 0.0032*5*1/5,
                             'sigma_q_AE':1e2,
                             'Q_pos_scale':1e-10}
-    
-
 
     gait_model_covar_path = f'GaitModel/covar_fourier_normalizedsL_linearsL.csv'
 
@@ -165,6 +145,7 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
         num_meas = 5
 
     # #FULL
+    #define the constant measurement noise matrix
     R_meas = np.diag([sigma_foot**2,
         sigma_foot_vel**2,\
         sigma_shank**2,
@@ -174,6 +155,8 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
         ])
 
 
+    #define the diagonal elements of the process noise matrix
+    #TUNE THESE TO CHANGE THE RESPONSE OF THE EKF
     sigma_q_phase=0
     sigma_q_phase_dot=6e-4
     sigma_q_sL=9e-4
@@ -224,15 +207,11 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
 
         phase_ekf = PhaseEKF(**phase_ekf_args)
 
-
-    # phase_ekf = PhaseEKF(shankAngleOffset, ankleAngleOffset)
-    # heel_phase_estimator=HeelPhaseEstimator(phase_ekf, save_plotting_data=False)
     
     #INITIALIZE BACKUP EKF
     Q_HP = np.diag([1e-4,5e-3])
     R_HP = phase_ekf.R_mean
     heelphase_ekf=HeelPhaseEKF(phase_ekf, Q_HP, R_HP, timing_based_estimator=None)
-
 
     #set up the filters for the gyro and accel signals
     fc_gyro = 5
@@ -252,7 +231,6 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
 
     #SET UP SUBJECT LEG LENGTH
     # SUBJECT_LEG_LENGTH = 1.854/2
-
     SUBJECT_LEG_LENGTH = 0.935 #AB01
     # SUBJECT_LEG_LENGTH = 0.975 # AB02
     # SUBJECT_LEG_LENGTH = 0.965 #AB03
@@ -260,9 +238,8 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
     # SUBJECT_LEG_LENGTH = 0.96 #AB05
     # SUBJECT_LEG_LENGTH = 0.845 #AB06
 
-    #SET UP FILTERS
-
-    #SET UP Filters
+    #SET UP FILTERS FOR THE HEEL POSITIONS
+    #these integrate the foot AHRS accelerometer readings to obtain global (zero-mean) heel positions
     ω = 0.5 * np.pi*2
     ζ= 0.9
 
@@ -296,7 +273,6 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
 
     startTime = time()
     prevTime = 0
-    # inProcedure = True
     i = 0
     dt = 1/180
     DO_OVERRIDES = True
@@ -308,10 +284,7 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
     accelZVec_buffer = []
     gyroYVec_buffer = []
     timeVec_buffer = []
-    
     HSDetected = False
-
-
     updateFHfreq = 20
     isUpdateTime = True
     isUpdateR = False
@@ -325,8 +298,8 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
 
 
     exo_right.set_current_gains()
-    # fxs.set_gains(devId, 40, 400, 0, 0, 0, 128)
     loop = SoftRealtimeLoop(dt=0.01, report=True, fade=0.1)
+
     for t in loop:# inProcedure:
         mainprof.tic()
         firsthalf.tic()
@@ -336,19 +309,15 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
         timeSec = currentTime - startTime
 
         isUpdateTime = (timeSec % 1/updateFHfreq  < 1e-2)
-        # print(isUpdateTime)
         dt = timeSec - prevTime
-        # print(dt)
 
         read_exo_prof.tic()
+        #update the exoskeleton
         exo_right.update()
+        #read the exoskeleton
         exoState=exo_right.act_pack
-        # exoState = fxs.read_device(devId)
         read_exo_prof.toc()
     
-        # clearTerminal()
-        # print(i) 
-
         prof_accel_gyro_math.tic()
     
         accelX = exoState.accelx/accelScaleFactor # in units of g
@@ -361,7 +330,6 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
 
         accelVec = np.array([accelX,accelY,accelZ])
         accelVec_corrected = Rot_correct @ (accelVec)
-
         accelNorm = np.linalg.norm(accelVec_corrected)
 
     
@@ -379,7 +347,6 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
 
         prof_accel_gyro_math.toc()
 
-        
         # read IMU data
         ahrs_prof.tic()
         am.update()
@@ -390,11 +357,7 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
         unskewTime1 = time()
         unskewTime = unskewTime1 - unskewTime0
     
-        #filter the signals for the HSD
-        # gyroY_filter = gyroYLowPassFilter.step(i, gyroY)
-        # accelZ_filter = accelZHighPassFilter.step(i, accelZ)
-
-        #READ IN AHRS ACCEL AND FILTER TO GET POS
+        #READ IN AHRS ACCEL 
         acc_vec_ahrs = am.get_linear_acc(CORRECT_VICON=CORRECT_VICON)
         heelAccForward_meas = acc_vec_ahrs[0,0]
         heelAccSide_meas = acc_vec_ahrs[1,0]
@@ -410,32 +373,23 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
                                                             (heelAccUp_meas_fromDeltaVelocity)**2)
 
 
-        #NUMERICALLY INTEGRATE FOOT POS Forward and Up
+        #FILTER AHRS TO OBTAIN POSITIONS
         dt_int = np.min([dt, MAX_TIME_STEP_INTEGRATE])
         states_heelPosForward, heelPosForward_meas_filt = heelPosForwardFilter.step(i, dt_int, heelAccForward_meas_fromDeltaVelocity)
         heelPosForward_meas_filt = heelPosForward_meas_filt[0,0]
-        # heelPosForward_meas_filt = np.max([np.min([heelPosForward_meas_filt, 0.4]), -0.25])
 
         states_heelPosUp, heelPosUp_meas_filt = heelPosUpFilter.step(i, dt_int, heelAccUp_meas_fromDeltaVelocity)
         heelPosUp_meas_filt = heelPosUp_meas_filt[0,0]
-        # heelPosUp_meas_filt = np.max([np.min([heelPosUp_meas_filt, 0.2]), -0.16])
 
-
-
-        
-        # print(f'heelPosForward_meas_filt: {heelPosForward_meas_filt}')
         filters_prof.toc()
         firsthalf.toc()
 
         #SOFT LIMIT
         if abs(motorCurrent_buffer) > 50000: #if the motor current magnitude exceeds 40 Amps
-        
+    
             print("HIT CURRENT SOFT LIMIT\n")
             raise Exception("HIT CURRENT SOFT LIMIT\n")
             beforeExiting()
-
-
-        
 
         attStep_prof.tic()
         attitude_ekf.step(i, dt, isUpdateTime)
@@ -454,27 +408,17 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
         prevTime = timeSec
 
         math_prof.tic()
-
-        # print('Psi (about +x): ' + str(  round(psi ,4) *180/np.pi))
-        # print('Theta (about +y): ' + str(  round(theta ,4) *180/np.pi))
-        # print('Phi (about +z): ' + str(  round(phi ,4)*180/np.pi ))
-
         ankleAngle = sideMultiplier * ((ankleAngle_buffer * countToDeg ) - ankleAngleOffset)
-        # print('ankleAngle')
-        # print(ankleAngle)
-        # print(ankleAngle_buffer/10)
-
 
         shankAngle_meas = attitude_ekf.get_useful_angles(ankleAngle, sideMultiplier)
 
         shankAngle_meas = shankAngle_meas - shankAngleOffset + SHANK_ANGLE_OFFSET_VICON
 
-        ## dump new IMU code here
+        #READ ROTATION MATRIX FROM IMU
         R_foot = am.get_R_foot(CORRECT_VICON=CORRECT_VICON)
-
-
         roll, pitch, yaw = attitude_ekf.get_euler_angles_new(R_foot)
 
+        #obtain foot angle
         footAngle_meas = -pitch*180/np.pi
 
         footAngle_meas = footAngle_meas - footAngleOffset
@@ -484,10 +428,6 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
 
         if footAngle_meas > 180:
             footAngle_meas -= 360
-
-        # if i%10 == 0:
-        #   print('shankAngle: ' + str(shankAngle))
-        #   print('footAngle: ' + str(footAngle))
 
         ankleAngleVel_meas = sideMultiplier * (ankleAngleVel_buffer * countToDeg) * 1000
 
@@ -500,52 +440,31 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
         HSDetected = HSDetector.detectHS(timeSec, footAngle_meas, footAngleVel_meas,  heelAccForward_meas_norm)
         HSdetect_prof.toc()
 
-        # firsthalf.toc() 75
-
-        # Scale kinematics
-
-        # footAngle = (footAngle - footBias) * footScale
-        # shankAngle = (shankAngle - shankBias) * shankScale
-
-        # shankAngleVel_meas *= footScale
-        # footAngleVel_meas *= shankScale
-
-
-        # update the phase estimator
-        # Extract relevant variables from the PE portion of the EKF
-        # print('x_state_estimate')
-        # print(x_state_estimate)
-
-        # print('P_covar_estimate')
-        # print(P_covar_estimate)
 
         math_prof.toc()
         getters_prof.tic()
 
+        #obtain ekf gait state after prediction
         phase_estimate = phase_ekf.x_state_estimate[0]
         phase_dot_estimate = phase_ekf.x_state_estimate[1]
         pseudoStepLength_estimate = phase_ekf.x_state_estimate[2]
         incline_estimate = phase_ekf.x_state_estimate[3]
 
+        #create measurement vector
         z_measured = np.array([footAngle_meas, footAngleVel_meas, shankAngle_meas, shankAngleVel_meas, heelPosForward_meas_filt,heelPosUp_meas_filt])
         getters_prof.toc()
 
+        #update the EKF with measurements
         profilers["measure_update"].profile( 
             lambda: phase_ekf.update(i, dt, z_measured)
             )
-        # print(HSDetected)
 
-
-        # profilers["heel_phase"].profile(
-        #     lambda: heel_phase_estimator.step(i, timeSec, HSDetected, DO_OVERRIDES=DO_OVERRIDES, UPDATE_OLS=UPDATE_OLS)
-        #     )
-
+        #update the heelphase backup plan with measurements
         profilers["heel_phase"].profile(
             lambda: heelphase_ekf.step(i, timeSec, dt, z_measured, HSDetected, DO_OVERRIDES)
             )
 
-        # print('P_covar_update')
-        # print(P_covar_update)
+
         temp_x_state_update = phase_ekf.x_state_update
 
         strideLength_update_descaled = arctanMap(temp_x_state_update[2])
@@ -554,21 +473,14 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
         strideLength_update_descaled = SUBJECT_LEG_LENGTH * strideLength_update_descaled
 
         # control current
-        
         desCurrent = phase_ekf.get_torque()
 
         if desCurrent < 0.7:
             desCurrent = 0.7
-        # if desCurrent > 5:
-        #     desCurrent = 5
-
-        # print(desCurrent) 
-
         desTorque = desCurrent * Kt * N_avg * sideMultiplier
         actTorque = motorCurrent_buffer/1000 * Kt * N_avg
 
         if DRAW_CURRENT:
-            # fxs.send_motor_command(devId, fxe.FX_CURRENT, desCurrent * 1000 * sideMultiplier)
             if t>FADE_IN_TIME:
                 exo_right.i = desCurrent*sideMultiplier*loop.fade
             else:
@@ -581,8 +493,7 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
         times = phase_ekf.get_times()
         
 
-        # assert(isinstance(phase_ekf.SSE,float))
-
+        #log data
         data_frame_vec = [
             round(timeSec,4), #0
             accelVec_corrected[0], #1
@@ -664,10 +575,7 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
             heelphase_ekf.x_state[1,0], #77
             heelphase_ekf.SSE, #78
             phase_ekf.get_SSE(), #79
-            # gc.mem_alloc(), #80
-            # gc.mem_free(), #81
         ]
-        # print(data_frame_vec)
 
         writer.writerow(data_frame_vec)
     
@@ -676,9 +584,6 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
 
         if t > run_time:
             break
-        # if timeSec >= run_time:
-        #     inProcedure = False
-        #     fxClose(devId)
 
         mainprof.toc()
 
@@ -686,9 +591,6 @@ def runPB_EKF(exo_right, writer, fd_l, am, run_time = 60*10):
     return True
 
 if __name__ == '__main__':
-
-    # port_cfg_path = '/home/pi/code/Actuator-Package/Python/flexsea_demo/ports.yaml'
-    # ports, baud_rate = fxu.load_ports_from_file(port_cfg_path)
 
     read_exo_prof = StatProfiler(name="reading_exo")
     prof_accel_gyro_math = StatProfiler(name="accel and gyro math")
@@ -701,48 +603,21 @@ if __name__ == '__main__':
     getters_prof = StatProfiler(name="Getters")
     attUpdate_prof = StatProfiler(name="attituse update and get euler")
     log_prof = StatProfiler(name="Logging")
-
-    
-    
-    
     mainprof = StatProfiler(name="Main Loop")
     firsthalf = StatProfiler(name="first_quarter_loop")
-
-    # print('Loaded ports: ' + str(ports))
-    # print('Using baud rate: ' + str(int(baud_rate)))
-    # port_left = ports[1]
-    # port_right = ports[1]
-
-    # print(port_right)
-    # 
-    # fxs = flex.FlexSEA()
-    # streamFreq = 1000 # Hz
-    # data_log = False  # False means no logs will be saved
-    # shouldAutostream = 1; # This makes the loop run slightly faster
-    # debug_logging_level = 6  # 6 is least verbose, 0 is most verbose
-    
-    # devId_right = fxs.open(port_right, baud_rate, debug_logging_level)
-    # print(devId_right)
-    # fxs.start_streaming(devId_right, freq=streamFreq, log_en=data_log)
-    # app_type = fxs.get_app_type(devId_right)
-
 
     filename_offsets = 'angleOffsets_right.csv'
     print(filename_offsets)
 
     attitude_ekf_calibrate=AttitudeEKF_C()#Attitude_EKF()
-    # attitude_ekf_imu_calibrate=AttitudeEKF()
     imu_port = "/dev/ttyACM0"
     
-
     with ActPackMan("/dev/ttyACM1") as exo_right:
         print("in")
         footAngleOffset, shankAngleOffset, ankleAngleOffset = ca.main(exo_right, filename_offsets, attitude_ekf_calibrate)
 
         filename = '{0}Standalone_PB_EKF_Test.csv'.format(strftime("%Y%m%d-%H_AE%M%S"))
         print(filename)
-
-        
 
         input('HIT ENTER TO START')
         with open(filename, "w", newline="\n") as fd_l:

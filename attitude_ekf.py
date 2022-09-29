@@ -8,11 +8,7 @@ class AttitudeEKF():
 
         self.x0 = np.zeros((6,1))
         self.P0 = eye6*1e-3
-        # print('AttitudeEKF.x0')
-        # print(self.x0)
         self.F0 = calculateF_N(self.x0)
-        # print('AttitudeEKF.F0')
-        # print(self.F0)
         self.H = calculateH_N(self.x0)
 
         self.Q0 = np.diag([sigma_q_AE**2,sigma_q_AE**2,sigma_q_AE**2])
@@ -30,7 +26,6 @@ class AttitudeEKF():
         self.isUpdateR = False
 
         self.accelNormCutoff = 1.15
-        # self.accelNormCutoff = 35
 
         self.isUsingAccel = True
 
@@ -60,6 +55,7 @@ class AttitudeEKF():
         self.R_vicon_correct_exo_imu = R_vicon_correct_exo_imu_z @ R_vicon_correct_exo_imu_x
 
 
+    # the prediction step of the attitude EKF
     def step(self, i, dt, isUpdateTime=True):
         time0 = time()
         first=(i==0)
@@ -85,6 +81,7 @@ class AttitudeEKF():
         time1 = time()
         self.timing_step = time1 - time0
 
+    #the update step of the attitude EKF
     def measure(self, i, gyroVec_corrected, accelVec_corrected, isUpdateTime=True, CORRECT_VICON=True):
         time0 = time()
 
@@ -104,7 +101,6 @@ class AttitudeEKF():
 
         #update with both the gyro and accel measurements
         else:
-            # print('accel and gyro')
             self.isUsingAccel = True
             (self.z_measured, self.z_model, self.y_residual, self.x_state_update,
                 self.P_covar_update, self.isUpdateR, self.H) = updateStep_AE(
@@ -118,6 +114,7 @@ class AttitudeEKF():
         time1 = time()
         self.timing_measure = time1 - time0
 
+    #extract euler angles given the internal A-EKF state vector of a rotation vector
     def get_euler_angles(self):
         time0 = time()
         r_g_update = self.x_state_update[0:3]
@@ -127,7 +124,6 @@ class AttitudeEKF():
         theta = np.arccos(np.dot(  np.array([1,0,0]) , R_update.transpose() @ np.array([0,0,1])  )) - np.pi/2
 
         eulerAngles = (psi,theta,0)
-        # eulerAngles = extractEulerAngles(R_update)
 
         time1 = time()
         self.timing_get_euler_angles = time1 - time0
@@ -145,11 +141,6 @@ class AttitudeEKF():
        
         shank_angle = sideMultiplier * -1 * theta *180/np.pi
 
-        # foot_axis = np.array([np.cos(ankleAngle * np.pi/180),0,np.sin(ankleAngle * np.pi/180)])
-
-        # foot_angle = np.arcsin(np.dot(  foot_axis , R_update.transpose() @ np.array([0,0,1])  )) * 180/np.pi
-
         time1 = time()
         self.timing_get_useful_angles = time1 - time0
-        # eulerAngles = extractEulerAngles(R_update)
         return shank_angle

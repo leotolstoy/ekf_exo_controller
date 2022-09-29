@@ -8,5 +8,3 @@ This project develops an Extended Kalman Filter (EKF) based estimator that learn
 
 This work is performed under the [Neurobionics Laboratory](https://neurobionics.robotics.umich.edu/) and the [Locomotor Control Systems Laboratory](https://web.eecs.umich.edu/locolab/) under Drs. Elliott Rouse, Robert Gregg, and Gray Thomas.
 
-TODO:
-update calc_dataport_crossval_all

@@ -32,12 +32,6 @@ elif sys.platform.lower().startswith('linux'):
 
 
 
-# pardir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# print(pardir)
-# sys.path.append(pardir)
-
-
 from flexseapython.fxUtil import *
 from flexseapython.pyFlexsea import *
 
@@ -119,13 +113,8 @@ def runPB_EKF(devId, run_time = 20):
 			currentTime = time()
 			timeSec = currentTime - startTime
 			
-
 			sleep(0.005)
 			exoState = fxReadDevice(devId)
-			
-			# accelX = exoState.accelx/accelScaleFactor # in units of g
-			# accelY = exoState.accely/accelScaleFactor
-			# accelZ = exoState.accelz/accelScaleFactor
 
 			gyroX = exoState.gyrox/gyroScaleFactor * np.pi/180 #in units of rad/s
 			gyroY = exoState.gyroy/gyroScaleFactor * np.pi/180
@@ -177,15 +166,8 @@ def runPB_EKF(devId, run_time = 20):
 	return True
 
 if __name__ == '__main__':
-	# baudRate = sys.argv[1]
-	# ports = sys.argv[2:3]
-
-	# baudRate = 230400
-	# ports = '/dev/ttyACM0'
 
 	fpath = '/home/pi/code/Actuator-Package/Python/flexseapython/com.txt'
-
-	#check if this works
 	ports, baudRate = loadPortsFromFile(fpath)
 	port_left = ports[0]
 	port_right = ports[0]

@@ -3,8 +3,7 @@ from evalBezierFuncs_3P import *
 import numpy as np
 
 
-
-
+#This class defines the exoskeleton torque profile 
 
 class TorqueProfile():
 
@@ -17,6 +16,7 @@ class TorqueProfile():
 		self.numFuncs = (incline_order+1) * (stride_length_order+1) * (phase_order+1)
 
 
+	#load the bezier function curves that compose the profile
 	def loadBezierCurves(self,filename):
 	    data = np.loadtxt(filename,delimiter=',')
 
@@ -24,8 +24,8 @@ class TorqueProfile():
 
 	    return best_fit_params_torque
 
+	#evaluate the profile
 	def evalTorqueProfile(self,phase_estimate, stepLength_estimate, incline_estimate):
-
 		return self.evalBiologicalProfile(phase_estimate, stepLength_estimate, incline_estimate)
 
 	def evalBiologicalProfile(self,phase_estimate, stepLength_estimate, incline_estimate):

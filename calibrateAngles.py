@@ -1,3 +1,5 @@
+
+
 import os, sys
 from time import sleep, time, strftime, perf_counter
 import traceback
@@ -9,9 +11,6 @@ import scipy.linalg
 
 from evalBezierFuncs_3P import *
 from arctanMapFuncs import *
-# from attitudeEstimatorEKFFuncs import * 
-
-# from attitude_ekf import AttitudeEKF
 from C_Wrapper import *
 
 # from phase_ekf import PhaseEKF
@@ -25,27 +24,6 @@ print(thisdir)
 sys.path.append(thisdir)
 
 sys.path.append(thisdir + '/BestFitParams')
-
-
-
-# pardir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/Actuator-Package/Python'
-# print(pardir)
-# sys.path.append(pardir)
-
-# if sys.platform.lower().startswith('win'):
-# 	sys.path.append(r"C:\Users\unghee\Actuator-Package\Python") # set the directory based on your computer 
-# 	sys.path.append("..\defs") # adding neurobionics library
-# elif sys.platform.lower().startswith('linux'):
-# 	sys.path.append("/home/pi/code/Actuator-Package/Python") # set the directory based on your computer
-# 	sys.path.append("../defs") # adding neurobionics library
-
-
-
-# pardir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# print(pardir)
-# sys.path.append(pardir)
-
 
 from flexsea import flexsea as flex
 from flexsea import fxUtils as fxu  # pylint: disable=no-name-in-module
@@ -93,7 +71,6 @@ eye4= np.eye(4)
 #--------also only good for the right leg--------
 theta_correction = 39.1090 * np.pi/180
 
-
 #correct to non tilted axes
 Rot_unskew = np.array(  [[np.cos(theta_correction), -np.sin(theta_correction),0],[np.sin(theta_correction), np.cos(theta_correction),0],[0, 0, 1]])
 
@@ -105,13 +82,8 @@ Rot2 = np.array( [[np.cos(-np.pi/2), 0 ,np.sin(-np.pi/2)],[0,1, 0],[-np.sin(-np.
 Rot_correct = Rot2 @ Rot1 @ Rot_unskew
 
 
-
 # correct foot IMU
-
 Rot_correct_imu =  np.array( [[0, 0, 1],[0,-1,0],[1,0,0]] )
-
-
-
 
 side = 'right'
 
@@ -122,35 +94,18 @@ elif (side == "right" or side == "r"):
 	sideMultiplier = 1
 
 
-
-
-
-
-
-
-
+#this function calibrates the exoskeleton shank and foot sensors and writes them to angleOffsets_right.csv
 def calibrateAngles_write(attitude_ekf,am,fxs,devId, writer, run_time = 10):
 
-	# print(port)
-	
-	# devId =	fxOpen(port, baudRate,6)
-	# print(devId)
-	# fxStartStreaming(devId, frequency = 500, shouldLog = False)
-
-
 	CORRECT_VICON = True
-
-
 	startTime = time()
 	prevTime = 0
 	inProcedure = True
 	i = 0
 	dt = 1/180
-
 	updateFHfreq = 20
 	isUpdateTime = True
 	isUpdateR = False
-
 	phaseDelins = [0.1,0.5,0.65,1]
 
 	shankAngleVec = []
@@ -165,18 +120,11 @@ def calibrateAngles_write(attitude_ekf,am,fxs,devId, writer, run_time = 10):
 			unskewTime0 = time()
 			currentTime = time()
 			timeSec = currentTime - startTime
-
 			isUpdateTime = (timeSec % 1/updateFHfreq  < 1e-2)
-			# print(isUpdateTime)
 			dt = timeSec - prevTime
-			# print(dt)
 			exoState = fxs.read_device(devId)
-			# clearTerminal()
-			# print(i) 
-			
-			
-			
 
+			# read from the exoskeleton
 			accelX = exoState.accelx/accelScaleFactor # in units of g
 			accelY = exoState.accely/accelScaleFactor
 			accelZ = exoState.accelz/accelScaleFactor
@@ -187,9 +135,7 @@ def calibrateAngles_write(attitude_ekf,am,fxs,devId, writer, run_time = 10):
 
 			accelVec = np.array([accelX,accelY,accelZ])
 			accelVec_corrected = Rot_correct @ (accelVec)
-
 			accelNorm = np.linalg.norm(accelVec_corrected)
-
 
 			gyroVec = np.array([gyroX,gyroY,gyroZ])
 			gyroVec_corrected = Rot_correct @ (gyroVec)
@@ -197,36 +143,19 @@ def calibrateAngles_write(attitude_ekf,am,fxs,devId, writer, run_time = 10):
 
 			ankleAngle_buffer = exoState.ank_ang
 
+			#read from the foot AHRS
 			am.update()
 			R_am = am.R
 
 			# step through
 			attitude_ekf.step(i,dt,isUpdateTime)
-
-			# if CORRECT_VICON:
-	  #           accelVec_corrected = R_vicon_correct_exo_imu @ accelVec_corrected
-	  #           gyroVec_corrected = R_vicon_correct_exo_imu @ gyroVec_corrected
-
-
-			#update
-
 			attitude_ekf.measure_update(i, gyroVec_corrected, accelVec_corrected,isUpdateTime, CORRECT_VICON)
 			psi, theta, phi = attitude_ekf.get_euler_angles()
-
 			prevTime = timeSec
-
-
-
-
-			# ankleAngle = sideMultiplier * -((ankleAngle_buffer * countToDeg ) - 0
-
 			shankAngle = attitude_ekf.get_useful_angles(0, sideMultiplier)
 
+			#read the rotation matrix from the foot IMU
 			R_foot = am.get_R_foot(CORRECT_VICON=CORRECT_VICON)
-
-	        # if CORRECT_VICON:
-         #    	R_foot = am.get_R_foot_vicon_correct()
-
 			roll, pitch, yaw = attitude_ekf.get_euler_angles_new(R_foot)
 			footAngle = -pitch*180/3.1415
 
@@ -253,41 +182,21 @@ def calibrateAngles_write(attitude_ekf,am,fxs,devId, writer, run_time = 10):
 		fxs.close(devId)
 		pass
 
-
-
-	
+	#take the averages and obtain the offsets for foot and shank
 	footAngleOffset = np.mean(footAngleVec)
 	shankAngleOffset = np.mean(shankAngleVec)
 	ankleAngleOffset = np.mean(ankleAngleVec)
-
-	print('ankleAngleOffset: ' + str(ankleAngleOffset))
-
 	writer.writerow([footAngleOffset, shankAngleOffset,ankleAngleOffset])
-
-
 	return (footAngleOffset, shankAngleOffset, ankleAngleOffset)
 
-
+#this function reads the exoskeleton shank and foot sensor offsets from angleOffsets_right.csv
 def calibrateAngles_read(filename):
 
 	data = np.loadtxt(filename, delimiter=',')
-
-	# reader = csv.reader(file, delimiter=',')
-	# i = 0
-
-	# for row in reader:
-	# 	i+=1
-	# 	if i == 1:
-	# 		line1 = np.asarray(row,dtype=np.float64)
-	# 	elif i == 2:
-	# 		line2 = np.asarray(row,dtype=np.float64)
-
-	# file.close()
 	print(data)
 	footAngleOffset = data[0]
 	shankAngleOffset = data[1]
 	ankleAngleOffset = data[2]
-
 
 	print('shankAngleOffset')
 	print(str(shankAngleOffset))
@@ -300,9 +209,7 @@ def calibrateAngles_read(filename):
 def main(fxs, devId, filename, attitude_ekf):
 
 	prompt = int(input('Do you want to calibrate the exo (1) or read offsets from file (2) ?'))
-
 	while not (prompt == 1 or prompt == 2):
-
 		print('Not an option')
 		prompt = input('Do you want to calibrate the exo (1) or read offsets from file (2) ?')
 
@@ -312,14 +219,8 @@ def main(fxs, devId, filename, attitude_ekf):
 			with AhrsManager() as am:
 				(footAngleOffset, shankAngleOffset, ankleAngleOffset) = calibrateAngles_write(attitude_ekf, am, fxs, devId, writer)
 
-
-			
-
 	elif prompt == 2:
-
 		(footAngleOffset, shankAngleOffset, ankleAngleOffset) = calibrateAngles_read(filename)
-
-
 
 	return (footAngleOffset, shankAngleOffset, ankleAngleOffset)
 	

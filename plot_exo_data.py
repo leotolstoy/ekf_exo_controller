@@ -75,9 +75,6 @@ def main():
     HPEKF_SSE = data[:,78] #71
     EKF_SSE = data[:,79] #71
 
-    # MEM_ALLOC = data[:,80] 
-    # MEM_FREE = data[:,81]
-
 
     diff_SSEs = HPEKF_SSE - EKF_SSE
 

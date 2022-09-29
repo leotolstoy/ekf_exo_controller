@@ -1,8 +1,8 @@
 """Attitude estimator functions for the attitude EKF
 
 Attributes:
-    eye3 (TYPE): 3x3 identity matrix
-    eye6 (TYPE): 6x6 identity matrix
+    eye3 (np.array): 3x3 identity matrix
+    eye6 (np.array): 6x6 identity matrix
 """
 import numpy as np
 from time import time
@@ -14,10 +14,10 @@ def expMap(x):
     """Takes the analytical matrix exponential of a three vector
     
     Args:
-        x (TYPE): the three vector input
+        x (np.array): the three vector input
     
     Returns:
-        TYPE: the matrix exponential
+        np.array: the matrix exponential
     """
     return sp.linalg.expm(hatMap(x))
 
@@ -25,10 +25,10 @@ def logMap(x):
     """Takes the analytical matrix logarithm
     
     Args:
-        x (TYPE): a 3x3 matrix 
+        x (np.array): a 3x3 matrix 
     
     Returns:
-        TYPE: the three vector that's the logarithm of matrix x
+        np.array: the three vector that's the logarithm of matrix x
     """
     S = sp.linalg.logm(x)
     return invHatMap(S)
@@ -37,10 +37,10 @@ def returnAxisAngle(r):
     """returns the axis angle representation of a three-vector
     
     Args:
-        r (TYPE): a three vector
+        r (np.array): a three vector
     
     Returns:
-        TYPE: a tuple of the angle and axis 
+        np.array: a tuple of the angle and axis 
     """
     angle_estimate_AE = np.linalg.norm(r)
     # print(angle_estimate_AE)
@@ -55,11 +55,11 @@ def applyRodrigues(w_hat,theta):
     """Applies Rodrigues' formula to a rotation axis and an angle
     
     Args:
-        w_hat (TYPE): a 3-(unit)vector encoding the rotation axis 
-        theta (TYPE): the rotation magnitude
+        w_hat (np.array): a 3-(unit)vector encoding the rotation axis 
+        theta (np.array): the rotation magnitude
     
     Returns:
-        TYPE: the matrix exponential encoding the rotation
+        np.array: the matrix exponential encoding the rotation
     """
     matrixExp = eye3 + np.sin(theta) * w_hat + (1 - np.cos(theta)) * (w_hat @ w_hat)
 
@@ -69,10 +69,10 @@ def rotationMapRodrigues(r):
     """Applies Rodrigues' formula to an arbitrary 3-vector
     
     Args:
-        r (TYPE): a 3-vector encoding the rotation axis 
+        r (np.array): a 3-vector encoding the rotation axis 
     
     Returns:
-        TYPE: the matrix exponential encoding the rotation
+        np.array: the matrix exponential encoding the rotation
     """
     (theta, w) = returnAxisAngle(r)
     matrixExp = applyRodrigues(hatMap(w),theta)
@@ -82,10 +82,10 @@ def logMapManual(R_AE):
     """Takes the logarithm of a rotation matrix
     
     Args:
-        R_AE (TYPE): A rotation matrix
+        R_AE (np.array): A rotation matrix
     
     Returns:
-        TYPE: the axis and angle of the rotation matrix
+        np.array: the axis and angle of the rotation matrix
     """
     r11 = R_AE[0,0]
     r12 = R_AE[0,1]
@@ -138,10 +138,10 @@ def hatMap(x):
     """encodes the cross product with a vector x in 3x3 matrix form
     
     Args:
-        x (TYPE): a 3-vector
+        x (np.array): a 3-vector
     
     Returns:
-        TYPE: the 3x3 matrix representing the cross product with x
+        np.array: the 3x3 matrix representing the cross product with x
     """
     x=x.reshape((-1,))
     return np.array([
@@ -154,10 +154,10 @@ def invHatMap(S):
     """Turns a skew-symmetric matrix and extracts the 3-vector it encodes
     
     Args:
-        S (TYPE): a skew-symmetric matrix 
+        S (np.array): a skew-symmetric matrix 
     
     Returns:
-        TYPE: a 3-vector
+        np.array: a 3-vector
     """
     # S should be skew symmetric
     assert(np.linalg.norm(S+S.T)<1e-7)
@@ -169,11 +169,11 @@ def f(x, dt):
     Assumes constant rotational speed and integrates to a new angle over dt
     
     Args:
-        x (TYPE): the three-vector encoding the current rotational state of the A-EKF
-        dt (TYPE): the time-step
+        x (np.array): the three-vector encoding the current rotational state of the A-EKF
+        dt (np.array): the time-step
     
     Returns:
-        TYPE: the predicted next rotational three-vector
+        np.array: the predicted next rotational three-vector
     """
     # print('f')
     # print('x')
@@ -228,10 +228,10 @@ def h(x):
      returns gyro and accel readings in IMU frame
     
     Args:
-        x (TYPE): the three-vector encoding the current rotational state of the A-EKF
+        x (np.array): the three-vector encoding the current rotational state of the A-EKF
     
     Returns:
-        TYPE: the predicted gyro and accel readings in IMU frame
+        np.array: the predicted gyro and accel readings in IMU frame
     """
     # print(x)
     r = x[:3,0]
@@ -268,10 +268,10 @@ def h_gyroOnly(x):
      returns gyro readings in IMU frame
     
     Args:
-        x (TYPE): the three-vector encoding the current rotational state of the A-EKF
+        x (np.array): the three-vector encoding the current rotational state of the A-EKF
     
     Returns:
-        TYPE: the predicted gyro readings in IMU frame
+        np.array: the predicted gyro readings in IMU frame
     """
     r = x[:3,0]
     omega = x[3:, [0]]
@@ -303,11 +303,11 @@ def e_vec(n, q):
     """returns a unit basis vector
     
     Args:
-        n (TYPE): the index that contains 1
-        q (TYPE): the dimension of the unit vector
+        n (np.array): the index that contains 1
+        q (np.array): the dimension of the unit vector
     
     Returns:
-        TYPE: the unit basis vector
+        np.array: the unit basis vector
     """
     ret = np.zeros((q,1))
     ret[n,0]=1
@@ -318,11 +318,11 @@ def calculateF_N(x, delta=0.000001):
     Approximates the effect of the changing states on the covariance matrix
     
     Args:
-        x (TYPE): The current state
+        x (np.array): The current state
         delta (float, optional): the numerical delta of the state
     
     Returns:
-        TYPE: the 6x6 state transition gradient matrix
+        np.array: the 6x6 state transition gradient matrix
     """
     # F_AE = np.zeros((6,6))
     F_AE = eye6
@@ -347,11 +347,11 @@ def calculateH_N(x, delta=0.000001):
     """Numerically calculates the gradient matrix of the measurements wrt the states
     
     Args:
-        x (TYPE): The current state
+        x (np.array): The current state
         delta (float, optional): the numerical delta of the state
     
     Returns:
-        TYPE: the 6x6 measurement gradient matrix
+        np.array: the 6x6 measurement gradient matrix
     """
     H_AE = np.zeros((6,6))
     hx0_AE = h(x)
@@ -365,11 +365,11 @@ def calculateH_N_gyroOnly(x, delta=0.000001):
     """Numerically calculates the gradient matrix of only the gyro measurements wrt the states
     
     Args:
-        x (TYPE): The current state
+        x (np.array): The current state
         delta (float, optional): the numerical delta of the state
     
     Returns:
-        TYPE: the 3x6 measurement gradient matrix
+        np.array: the 3x6 measurement gradient matrix
     """
     H_AE = np.zeros((3,6))
     hx0_AE = h_gyroOnly(x)
@@ -389,16 +389,16 @@ def estimateStep_AE(x_prev_state_estimate_AE, P_prev_covar_estimate_AE, dt, Q_AE
     """Performs the estimation/prediction step of the AE
     
     Args:
-        x_prev_state_estimate_AE (TYPE): The previous state of the AE
-        P_prev_covar_estimate_AE (TYPE): The previous covariance of the AE
-        dt (TYPE): The time step
-        Q_AE (TYPE): The process noise matrix
+        x_prev_state_estimate_AE (np.array): The previous state of the AE
+        P_prev_covar_estimate_AE (np.array): The previous covariance of the AE
+        dt (np.array): The time step
+        Q_AE (np.array): The process noise matrix
         isUpdateTime (bool): If we update the state transition matrix
-        i (TYPE): The current iteration
-        F_AE_prev (TYPE): The previous state transition matrix
+        i (np.array): The current iteration
+        F_AE_prev (np.array): The previous state transition matrix
     
     Returns:
-        TYPE: the state estimate, the state transition matrix, and the covariance estimate
+        np.array: the state estimate, the state transition matrix, and the covariance estimate
     """
     x_state_estimate_AE = f(x_prev_state_estimate_AE,dt)
 
@@ -418,11 +418,11 @@ def updateStep_AE_gyroOnly(x_state_estimate_AE, P_covar_estimate_AE,gyroVec_corr
     """The update step of the AE, using only the gyro measurements
     
     Args:
-        x_state_estimate_AE (TYPE): The state estimate of the AE
-        P_covar_estimate_AE (TYPE): The covariance estimate of the AE
-        gyroVec_corrected (TYPE): The gyro measurements
-        accelVec_corrected (TYPE): The accelerometer measurements
-        R_gyroOnly_AE (TYPE): The measurement noise matrix
+        x_state_estimate_AE (np.array): The state estimate of the AE
+        P_covar_estimate_AE (np.array): The covariance estimate of the AE
+        gyroVec_corrected (np.array): The gyro measurements
+        accelVec_corrected (np.array): The accelerometer measurements
+        R_gyroOnly_AE (np.array): The measurement noise matrix
         isUpdateTime (boolean): If we update the measurement gradient matrix
     
 
@@ -474,15 +474,15 @@ def updateStep_AE(x_state_estimate_AE, P_covar_estimate_AE,gyroVec_corrected,acc
     """Performs the update step of the AE
     
     Args:
-        x_state_estimate_AE (TYPE): The state estimate of the AE
-        P_covar_estimate_AE (TYPE): The covariance estimate of the AE
-        gyroVec_corrected (TYPE): The gyro measurements
-        accelVec_corrected (TYPE): The accelerometer measurements
-        R_gyroOnly_AE (TYPE): The measurement noise matrix
+        x_state_estimate_AE (np.array): The state estimate of the AE
+        P_covar_estimate_AE (np.array): The covariance estimate of the AE
+        gyroVec_corrected (np.array): The gyro measurements
+        accelVec_corrected (np.array): The accelerometer measurements
+        R_gyroOnly_AE (np.array): The measurement noise matrix
         isUpdateTime (boolean): If we update the measurement gradient matrix
-        i (TYPE): The current iteration
-        isUpdateR (TYPE): If we update the measurement noise matrix
-        H_AE_prev (TYPE): The previous measurement gradient matrix
+        i (np.array): The current iteration
+        isUpdateR (np.array): If we update the measurement noise matrix
+        H_AE_prev (np.array): The previous measurement gradient matrix
     
 
     """
@@ -533,7 +533,7 @@ def extractEulerAngles(R_AE):
     """DOES NOT WORK
     
     Args:
-        R_AE (TYPE): Description
+        R_AE (np.array): Description
     """
 
 # ZYX
@@ -583,10 +583,10 @@ def extractEulerAngles_new(R):
     (Analgously: Rx * Ry * Rz)
     
     Args:
-        R (TYPE): a 3x3 rotation matrix
+        R (np.array): a 3x3 rotation matrix
     
     Returns:
-        TYPE: Euler angles in order: roll, pitch, yaw
+        np.array: Euler angles in order: roll, pitch, yaw
     """
     theta = np.arctan2(-R[0,2],np.sign(R[2,2]) * np.sqrt(R[1,2]**2 + R[2,2]**2))
     psi = np.arctan2(R[1,2]/np.cos(theta),R[2,2]/np.cos(theta));
@@ -603,10 +603,10 @@ def extractEulerAngles_new_ZYX(R):
     (Analgously: Rz * Ry * Rx)
     
     Args:
-        R (TYPE): a 3x3 rotation matrix
+        R (np.array): a 3x3 rotation matrix
     
     Returns:
-        TYPE: Euler angles in order: yaw, pitch, roll
+        np.array: Euler angles in order: yaw, pitch, roll
     """
     neg_roll,neg_pitch,neg_yaw = extractEulerAngles_new(R.T)
 
