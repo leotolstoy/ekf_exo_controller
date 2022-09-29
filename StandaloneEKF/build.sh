@@ -1,0 +1,2 @@
+g++ -O -c -fPIC -I /home/pi/code/eigen-3.4.0 -I /home/pi/code/eigen-3.4.0/unsupported standalone-phase-ekf.cpp -o standalone-phase-ekf.o
+g++ -shared -Wl,-soname,Standalone_EKF.so -o standalone_EKF.so standalone-phase-ekf.o
